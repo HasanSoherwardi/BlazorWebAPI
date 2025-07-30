@@ -1,0 +1,110 @@
+﻿@page "/login"
+@using BlazorWebAPI.Models;
+@using BlazorWebAPI.Services;
+@inject NavigationManager Navigation;
+@inject ILoginService loginService
+@inject CustomAuthenticationStateProvider AuthStateProvider;
+
+<h3>Login to Access Application</h3>
+
+<EditForm Model="@loginModel" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="alert alert-danger" hidden="@ErrorMsg">
+        @response.GetMessage
+    </div>
+    <div class="form-group">
+        <label>User Id</label>
+        <InputText id="name" @bind-Value="loginModel.Username" class="form-control" />
+    </div>
+    <div class="form-group">
+        <label>Password</label>
+        <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
+    </div>
+    <div class="form-group mt-1">
+        <button type="submit" class="btn btn-primary w-100">Login Now</button>
+    </div>
+    <div class="form-group mt-1">
+        <button type="button" class="btn btn-primary w-100" @onclick="@NavigateRegistration">Registration</button>
+    </div>
+</EditForm>
+
+@code {
+    private LoginViewModel loginModel = new();
+    private Response response = new Response();
+    private bool ErrorMsg = true;
+
+
+    string username = null;
+    string role = null; 
+    string jwtToken = null;
+
+    private async void NavigateRegistration()
+    {
+        Navigation.NavigateTo("/registration", true);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            var users = await loginService.GetUser(loginModel.Username, loginModel.Password);
+
+            if (users.Users != null && users.Users.Any())
+            {
+                var user = users.Users.FirstOrDefault();
+                if (user != null)
+                {
+                    if (user.UserId == "hasan")
+                    {
+                        username = user.Name;
+                        role = "admin";
+                        jwtToken = loginModel.GenerateJwtToken(user.Name, "admin");
+                    }
+                    else
+                    {
+                        username = user.Name;
+                        role = "user";
+                        jwtToken = loginModel.GenerateJwtToken(user.Name, "user");
+
+                    }
+
+
+                    // Call login with all three values
+                    await AuthStateProvider.Login(jwtToken, username, role);
+                    StateHasChanged();
+                    if (role == "admin")
+                    {
+                        Navigation.NavigateTo("/admin", true);
+                    }
+                    else
+                    {
+                        Navigation.NavigateTo("", true);
+                    }
+                }
+                else
+                {
+                    // User not found, show error message
+                    response.GetMessage = "Invalid user-id and password.";
+                    ErrorMsg = false;
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                response.GetMessage = users.response.GetMessage ?? "Invalid user-id and password.";
+                ErrorMsg = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {   
+            response.GetMessage = ex.Message;
+            ErrorMsg = false;
+            StateHasChanged();
+        }
+    }
+
+            
+    
+}
